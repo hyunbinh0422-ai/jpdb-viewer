@@ -397,7 +397,7 @@
       }
     });
 
-    fetch("word_list_ranked.txt")
+    fetch("word_list_ranked_renumbered.txt")
       .then(response => {
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}`);
@@ -417,7 +417,7 @@
       })
       .catch(error => {
         pageInfo.textContent = "파일을 불러오지 못했습니다.";
-        wordList.innerHTML = "<li><span class='word-text'>word_list_ranked.txt 파일을 확인하세요.</span></li>";
+        wordList.innerHTML = "<li><span class='word-text'>word_list_ranked_renumbered.txt 파일을 확인하세요.</span></li>";
         console.error(error);
       });
   </script>
