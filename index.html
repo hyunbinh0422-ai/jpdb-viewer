@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>단어 리스트 뷰어</title>
 
-  <!-- Noto Sans -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;700&display=swap" rel="stylesheet">
@@ -35,7 +34,7 @@
     .topbar {
       display: flex;
       justify-content: space-between;
-      align-items: center;
+      align-items: flex-start;
       gap: 12px;
       flex-wrap: wrap;
       margin-bottom: 24px;
@@ -44,12 +43,50 @@
     .page-info {
       font-size: 20px;
       font-weight: 700;
+      margin-top: 10px;
+    }
+
+    .top-right {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 8px;
+    }
+
+    .search-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .search-box {
+      font-family: "Noto Sans", sans-serif;
+      font-size: 18px;
+      padding: 10px 12px;
+      width: 220px;
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      outline: none;
+    }
+
+    .search-box:focus {
+      border-color: #2563eb;
+    }
+
+    .search-message {
+      min-height: 24px;
+      font-size: 16px;
+      color: #dc2626;
+      font-weight: 700;
+      text-align: right;
     }
 
     .controls {
       display: flex;
       gap: 10px;
       flex-wrap: wrap;
+      justify-content: flex-end;
     }
 
     button {
@@ -125,6 +162,12 @@
       color: #555;
     }
 
+    .highlight {
+      background: #fef3c7;
+      border-radius: 6px;
+      padding: 2px 6px;
+    }
+
     @media (max-width: 700px) {
       .word-list li {
         font-size: 24px;
@@ -133,6 +176,24 @@
       .copy-btn {
         font-size: 14px;
         padding: 7px 12px;
+      }
+
+      .search-box {
+        width: 180px;
+      }
+
+      .top-right {
+        width: 100%;
+        align-items: stretch;
+      }
+
+      .search-row,
+      .controls {
+        justify-content: flex-start;
+      }
+
+      .search-message {
+        text-align: left;
       }
     }
   </style>
@@ -143,9 +204,18 @@
 
     <div class="topbar">
       <div class="page-info" id="pageInfo">불러오는 중...</div>
-      <div class="controls">
-        <button id="prevBtn">이전</button>
-        <button id="nextBtn">다음</button>
+
+      <div class="top-right">
+        <div class="search-row">
+          <input type="text" id="searchInput" class="search-box" placeholder="단어 검색" />
+          <button id="searchBtn">검색</button>
+        </div>
+        <div class="search-message" id="searchMessage"></div>
+
+        <div class="controls">
+          <button id="prevBtn">이전</button>
+          <button id="nextBtn">다음</button>
+        </div>
       </div>
     </div>
 
@@ -167,6 +237,7 @@
     let lines = [];
     let currentPage = 1;
     let totalPages = 1;
+    let highlightedWord = "";
 
     const wordList = document.getElementById("wordList");
     const pageInfo = document.getElementById("pageInfo");
@@ -174,10 +245,22 @@
     const nextBtn = document.getElementById("nextBtn");
     const pageInput = document.getElementById("pageInput");
     const jumpBtn = document.getElementById("jumpBtn");
+    const searchInput = document.getElementById("searchInput");
+    const searchBtn = document.getElementById("searchBtn");
+    const searchMessage = document.getElementById("searchMessage");
 
     function extractWord(item) {
       const match = item.match(/^\s*\d+\.\s+(.*)$/);
       return match ? match[1] : item;
+    }
+
+    function escapeHtml(str) {
+      return str
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
     }
 
     async function copyToClipboard(text, button) {
@@ -209,13 +292,20 @@
 
         const span = document.createElement("span");
         span.className = "word-text";
-        span.textContent = item;
+
+        const wordOnly = extractWord(item);
+        if (highlightedWord && wordOnly === highlightedWord) {
+          const escapedItem = escapeHtml(item);
+          const escapedWord = escapeHtml(highlightedWord);
+          span.innerHTML = escapedItem.replace(escapedWord, `<span class="highlight">${escapedWord}</span>`);
+        } else {
+          span.textContent = item;
+        }
 
         const copyBtn = document.createElement("button");
         copyBtn.className = "copy-btn";
         copyBtn.textContent = "복사";
         copyBtn.addEventListener("click", () => {
-          const wordOnly = extractWord(item);
           copyToClipboard(wordOnly, copyBtn);
         });
 
@@ -230,9 +320,39 @@
       pageInput.value = currentPage;
     }
 
+    function searchWord() {
+      const keyword = searchInput.value.trim();
+      searchMessage.textContent = "";
+      highlightedWord = "";
+
+      if (!keyword) {
+        renderPage();
+        return;
+      }
+
+      const foundIndex = lines.findIndex(item => extractWord(item) === keyword);
+
+      if (foundIndex === -1) {
+        searchMessage.textContent = "발견되지 않습니다";
+        renderPage();
+        return;
+      }
+
+      currentPage = Math.floor(foundIndex / ITEMS_PER_PAGE) + 1;
+      highlightedWord = keyword;
+      renderPage();
+
+      const highlighted = document.querySelector(".highlight");
+      if (highlighted) {
+        highlighted.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    }
+
     prevBtn.addEventListener("click", () => {
       if (currentPage > 1) {
         currentPage--;
+        highlightedWord = "";
+        searchMessage.textContent = "";
         renderPage();
       }
     });
@@ -240,6 +360,8 @@
     nextBtn.addEventListener("click", () => {
       if (currentPage < totalPages) {
         currentPage++;
+        highlightedWord = "";
+        searchMessage.textContent = "";
         renderPage();
       }
     });
@@ -248,6 +370,8 @@
       const page = Number(pageInput.value);
       if (page >= 1 && page <= totalPages) {
         currentPage = page;
+        highlightedWord = "";
+        searchMessage.textContent = "";
         renderPage();
       }
     });
@@ -255,6 +379,14 @@
     pageInput.addEventListener("keydown", (e) => {
       if (e.key === "Enter") {
         jumpBtn.click();
+      }
+    });
+
+    searchBtn.addEventListener("click", searchWord);
+
+    searchInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        searchWord();
       }
     });
 
