@@ -18,7 +18,7 @@
     }
 
     .container {
-      max-width: 900px;
+      max-width: 960px;
       margin: 40px auto;
       background: white;
       padding: 32px;
@@ -29,13 +29,14 @@
     h1 {
       margin-top: 0;
       font-size: 32px;
+      margin-bottom: 24px;
     }
 
     .topbar {
       display: flex;
       justify-content: space-between;
       align-items: flex-start;
-      gap: 12px;
+      gap: 16px;
       flex-wrap: wrap;
       margin-bottom: 24px;
     }
@@ -64,10 +65,11 @@
       font-family: "Noto Sans", sans-serif;
       font-size: 18px;
       padding: 10px 12px;
-      width: 220px;
+      width: 260px;
       border: 1px solid #cbd5e1;
       border-radius: 10px;
       outline: none;
+      box-sizing: border-box;
     }
 
     .search-box:focus {
@@ -116,9 +118,9 @@
       align-items: center;
       justify-content: space-between;
       gap: 16px;
-      font-size: 32px;
-      line-height: 1.8;
-      padding: 10px 0;
+      font-size: 30px;
+      line-height: 1.7;
+      padding: 12px 0;
       border-bottom: 1px solid #e5e7eb;
     }
 
@@ -154,6 +156,7 @@
       font-size: 18px;
       padding: 8px 10px;
       width: 100px;
+      box-sizing: border-box;
     }
 
     .hint {
@@ -170,7 +173,7 @@
 
     @media (max-width: 700px) {
       .word-list li {
-        font-size: 24px;
+        font-size: 23px;
       }
 
       .copy-btn {
@@ -179,7 +182,7 @@
       }
 
       .search-box {
-        width: 180px;
+        width: 190px;
       }
 
       .top-right {
@@ -237,7 +240,7 @@
     let lines = [];
     let currentPage = 1;
     let totalPages = 1;
-    let highlightedWord = "";
+    let highlightedLine = "";
 
     const wordList = document.getElementById("wordList");
     const pageInfo = document.getElementById("pageInfo");
@@ -249,11 +252,6 @@
     const searchBtn = document.getElementById("searchBtn");
     const searchMessage = document.getElementById("searchMessage");
 
-    function extractWord(item) {
-      const match = item.match(/^\s*\d+\.\s+(.*)$/);
-      return match ? match[1] : item;
-    }
-
     function escapeHtml(str) {
       return str
         .replace(/&/g, "&amp;")
@@ -261,6 +259,17 @@
         .replace(/>/g, "&gt;")
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#039;");
+    }
+
+    // "64433. 信仰者(しんこうしゃ)" -> "信仰者"
+    // "1. の" -> "の"
+    function extractSearchableWord(line) {
+      let text = line.trim();
+
+      text = text.replace(/^\d+\.\s*/, "");
+      text = text.replace(/\([^()]*\)\s*$/, "");
+
+      return text.trim();
     }
 
     async function copyToClipboard(text, button) {
@@ -293,11 +302,8 @@
         const span = document.createElement("span");
         span.className = "word-text";
 
-        const wordOnly = extractWord(item);
-        if (highlightedWord && wordOnly === highlightedWord) {
-          const escapedItem = escapeHtml(item);
-          const escapedWord = escapeHtml(highlightedWord);
-          span.innerHTML = escapedItem.replace(escapedWord, `<span class="highlight">${escapedWord}</span>`);
+        if (highlightedLine && item === highlightedLine) {
+          span.innerHTML = `<span class="highlight">${escapeHtml(item)}</span>`;
         } else {
           span.textContent = item;
         }
@@ -306,6 +312,7 @@
         copyBtn.className = "copy-btn";
         copyBtn.textContent = "복사";
         copyBtn.addEventListener("click", () => {
+          const wordOnly = extractSearchableWord(item);
           copyToClipboard(wordOnly, copyBtn);
         });
 
@@ -323,14 +330,14 @@
     function searchWord() {
       const keyword = searchInput.value.trim();
       searchMessage.textContent = "";
-      highlightedWord = "";
+      highlightedLine = "";
 
       if (!keyword) {
         renderPage();
         return;
       }
 
-      const foundIndex = lines.findIndex(item => extractWord(item) === keyword);
+      const foundIndex = lines.findIndex(line => extractSearchableWord(line) === keyword);
 
       if (foundIndex === -1) {
         searchMessage.textContent = "발견되지 않습니다";
@@ -339,7 +346,7 @@
       }
 
       currentPage = Math.floor(foundIndex / ITEMS_PER_PAGE) + 1;
-      highlightedWord = keyword;
+      highlightedLine = lines[foundIndex];
       renderPage();
 
       const highlighted = document.querySelector(".highlight");
@@ -351,7 +358,7 @@
     prevBtn.addEventListener("click", () => {
       if (currentPage > 1) {
         currentPage--;
-        highlightedWord = "";
+        highlightedLine = "";
         searchMessage.textContent = "";
         renderPage();
       }
@@ -360,7 +367,7 @@
     nextBtn.addEventListener("click", () => {
       if (currentPage < totalPages) {
         currentPage++;
-        highlightedWord = "";
+        highlightedLine = "";
         searchMessage.textContent = "";
         renderPage();
       }
@@ -370,7 +377,7 @@
       const page = Number(pageInput.value);
       if (page >= 1 && page <= totalPages) {
         currentPage = page;
-        highlightedWord = "";
+        highlightedLine = "";
         searchMessage.textContent = "";
         renderPage();
       }
@@ -390,7 +397,7 @@
       }
     });
 
-    fetch("word_list_num.txt")
+    fetch("word_list_ranked.txt")
       .then(response => {
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}`);
@@ -410,7 +417,7 @@
       })
       .catch(error => {
         pageInfo.textContent = "파일을 불러오지 못했습니다.";
-        wordList.innerHTML = "<li><span class='word-text'>word_list_num.txt 파일을 확인하세요.</span></li>";
+        wordList.innerHTML = "<li><span class='word-text'>word_list_ranked.txt 파일을 확인하세요.</span></li>";
         console.error(error);
       });
   </script>
