@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>단어 리스트 뷰어</title>
+
+  <!-- Noto Sans -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;700&display=swap" rel="stylesheet">
+
+  <style>
+    body {
+      font-family: "Noto Sans", sans-serif;
+      margin: 0;
+      background: #f5f7fb;
+      color: #111;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 40px auto;
+      background: white;
+      padding: 32px;
+      border-radius: 16px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+    }
+
+    h1 {
+      margin-top: 0;
+      font-size: 32px;
+    }
+
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 24px;
+    }
+
+    .page-info {
+      font-size: 20px;
+      font-weight: 700;
+    }
+
+    .controls {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    button {
+      font-family: "Noto Sans", sans-serif;
+      font-size: 18px;
+      padding: 10px 16px;
+      border: none;
+      border-radius: 10px;
+      background: #2563eb;
+      color: white;
+      cursor: pointer;
+    }
+
+    button:disabled {
+      background: #9ca3af;
+      cursor: not-allowed;
+    }
+
+    .word-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+
+    .word-list li {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      font-size: 32px;
+      line-height: 1.8;
+      padding: 10px 0;
+      border-bottom: 1px solid #e5e7eb;
+    }
+
+    .word-text {
+      flex: 1;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .copy-btn {
+      flex-shrink: 0;
+      font-size: 16px;
+      padding: 8px 14px;
+      border-radius: 8px;
+      background: #10b981;
+    }
+
+    .copy-btn.copied {
+      background: #059669;
+    }
+
+    .jump-box {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+      margin-top: 20px;
+      font-size: 18px;
+    }
+
+    input[type="number"] {
+      font-family: "Noto Sans", sans-serif;
+      font-size: 18px;
+      padding: 8px 10px;
+      width: 100px;
+    }
+
+    .hint {
+      margin-top: 18px;
+      font-size: 16px;
+      color: #555;
+    }
+
+    @media (max-width: 700px) {
+      .word-list li {
+        font-size: 24px;
+      }
+
+      .copy-btn {
+        font-size: 14px;
+        padding: 7px 12px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>단어 리스트 뷰어</h1>
+
+    <div class="topbar">
+      <div class="page-info" id="pageInfo">불러오는 중...</div>
+      <div class="controls">
+        <button id="prevBtn">이전</button>
+        <button id="nextBtn">다음</button>
+      </div>
+    </div>
+
+    <ol class="word-list" id="wordList"></ol>
+
+    <div class="jump-box">
+      <label for="pageInput">페이지 이동:</label>
+      <input type="number" id="pageInput" min="1" />
+      <button id="jumpBtn">이동</button>
+    </div>
+
+    <div class="hint">
+      한 페이지에 10개씩 표시됨
+    </div>
+  </div>
+
+  <script>
+    const ITEMS_PER_PAGE = 10;
+    let lines = [];
+    let currentPage = 1;
+    let totalPages = 1;
+
+    const wordList = document.getElementById("wordList");
+    const pageInfo = document.getElementById("pageInfo");
+    const prevBtn = document.getElementById("prevBtn");
+    const nextBtn = document.getElementById("nextBtn");
+    const pageInput = document.getElementById("pageInput");
+    const jumpBtn = document.getElementById("jumpBtn");
+
+    function extractWord(item) {
+      const match = item.match(/^\s*\d+\.\s+(.*)$/);
+      return match ? match[1] : item;
+    }
+
+    async function copyToClipboard(text, button) {
+      try {
+        await navigator.clipboard.writeText(text);
+        const original = button.textContent;
+        button.textContent = "복사됨";
+        button.classList.add("copied");
+
+        setTimeout(() => {
+          button.textContent = original;
+          button.classList.remove("copied");
+        }, 1000);
+      } catch (err) {
+        alert("복사에 실패했습니다.");
+        console.error(err);
+      }
+    }
+
+    function renderPage() {
+      const start = (currentPage - 1) * ITEMS_PER_PAGE;
+      const end = start + ITEMS_PER_PAGE;
+      const pageItems = lines.slice(start, end);
+
+      wordList.innerHTML = "";
+
+      for (const item of pageItems) {
+        const li = document.createElement("li");
+
+        const span = document.createElement("span");
+        span.className = "word-text";
+        span.textContent = item;
+
+        const copyBtn = document.createElement("button");
+        copyBtn.className = "copy-btn";
+        copyBtn.textContent = "복사";
+        copyBtn.addEventListener("click", () => {
+          const wordOnly = extractWord(item);
+          copyToClipboard(wordOnly, copyBtn);
+        });
+
+        li.appendChild(span);
+        li.appendChild(copyBtn);
+        wordList.appendChild(li);
+      }
+
+      pageInfo.textContent = `${currentPage} / ${totalPages} 페이지`;
+      prevBtn.disabled = currentPage === 1;
+      nextBtn.disabled = currentPage === totalPages;
+      pageInput.value = currentPage;
+    }
+
+    prevBtn.addEventListener("click", () => {
+      if (currentPage > 1) {
+        currentPage--;
+        renderPage();
+      }
+    });
+
+    nextBtn.addEventListener("click", () => {
+      if (currentPage < totalPages) {
+        currentPage++;
+        renderPage();
+      }
+    });
+
+    jumpBtn.addEventListener("click", () => {
+      const page = Number(pageInput.value);
+      if (page >= 1 && page <= totalPages) {
+        currentPage = page;
+        renderPage();
+      }
+    });
+
+    pageInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        jumpBtn.click();
+      }
+    });
+
+    fetch("word_list_num.txt")
+      .then(response => {
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+        return response.text();
+      })
+      .then(text => {
+        lines = text
+          .split(/\r?\n/)
+          .map(line => line.trim())
+          .filter(line => line.length > 0);
+
+        totalPages = Math.max(1, Math.ceil(lines.length / ITEMS_PER_PAGE));
+        currentPage = 1;
+        pageInput.max = totalPages;
+        renderPage();
+      })
+      .catch(error => {
+        pageInfo.textContent = "파일을 불러오지 못했습니다.";
+        wordList.innerHTML = "<li><span class='word-text'>word_list_num.txt 파일을 확인하세요.</span></li>";
+        console.error(error);
+      });
+  </script>
+</body>
+</html>
